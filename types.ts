@@ -32,6 +32,7 @@ export interface PurchaseRecord {
   price: number;
   quantity: number;
   date: string;
+  createdAt: string;
 }
 
 export type ActivityAction = 'create' | 'update' | 'delete' | 'consume' | 'restock' | 'purchase';

@@ -28,8 +28,12 @@ import {
   PlusCircle,
   AlertCircle,
   ArrowUpDown,
-  Bell
+  Bell,
+  DollarSign,
+  Moon,
+  Sun
 } from 'lucide-react';
+import { PriceComparisonView } from './components/PriceComparisonView';
 import { InventoryItem, PurchaseRecord, Tab, Category, UnitType, SortOption, ActivityLog, ActivityAction } from './types';
 import { INITIAL_INVENTORY, INITIAL_HISTORY, CATEGORY_COLORS, INITIAL_LOGS } from './constants';
 import { AddItemModal } from './components/AddItemModal';
@@ -37,26 +41,46 @@ import { AnalysisView } from './components/AnalysisView';
 import { ActivityFeed } from './components/ActivityFeed';
 
 const App = () => {
+  // --- Dark Mode State ---
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('estoqueduo-dark-mode');
+    if (saved) {
+      const isDarkMode = JSON.parse(saved);
+      setIsDark(isDarkMode);
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+      }
+    }
+  }, []);
+
+  const toggleDark = () => {
+    const newValue = !isDark;
+    setIsDark(newValue);
+    localStorage.setItem('estoqueduo-dark-mode', JSON.stringify(newValue));
+    if (newValue) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
   // --- State ---
   const [activeTab, setActiveTab] = useState<Tab>('inventory');
   
-  // Inventory - carrega do Supabase
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryLoaded, setInventoryLoaded] = useState(false);
 
-  // Categories - carrega do Supabase
   const [categories, setCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
-  // History - carrega do Supabase
   const [history, setHistory] = useState<PurchaseRecord[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  // Saved Stores - carrega do Supabase
   const [savedStores, setSavedStores] = useState<string[]>([]);
   const [storesLoaded, setStoresLoaded] = useState(false);
 
-  // Activity Logs - carrega do Supabase
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [logsLoaded, setLogsLoaded] = useState(false);
 
@@ -64,42 +88,35 @@ const App = () => {
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   
-  // Search & Sort
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
 
   // --- Effects: Load all data from Supabase on mount ---
 
-  // Carregar todos os dados ao montar
   useEffect(() => {
     loadAllData();
   }, []);
 
   const loadAllData = async () => {
     try {
-      // Load items
       const itemsData = await getItems();
       if (itemsData) setInventory(itemsData);
       setInventoryLoaded(true);
 
-      // Load categories
       const categoriesData = await getCategories();
       if (categoriesData) {
         setCategories(categoriesData.length > 0 ? categoriesData : Object.values(Category));
       }
       setCategoriesLoaded(true);
 
-      // Load history
       const historyData = await getPurchaseHistory();
       if (historyData) setHistory(historyData);
       setHistoryLoaded(true);
 
-      // Load stores
       const storesData = await getStores();
       if (storesData) setSavedStores(storesData.length > 0 ? storesData : []);
       setStoresLoaded(true);
 
-      // Load activity logs
       const logsData = await getActivityLogs();
       if (logsData) setLogs(logsData);
       setLogsLoaded(true);
@@ -108,7 +125,6 @@ const App = () => {
     }
   };
 
-  // Mark logs as read when opening activity tab
   useEffect(() => {
     if (activeTab === 'activity') {
       const hasUnread = logs.some(l => !l.isRead);
@@ -120,7 +136,6 @@ const App = () => {
     }
   }, [activeTab, logs]);
 
-  // --- Logic Helper: Add Log (Local + Supabase) ---
   const addLog = async (action: ActivityAction, message: string, details?: string) => {
     const newLog: ActivityLog = {
       id: Math.random().toString(36).substr(2, 9),
@@ -131,14 +146,9 @@ const App = () => {
       isRead: false
     };
     
-    // Add locally
     setLogs(prev => [newLog, ...prev].slice(0, 50));
-    
-    // Add to Supabase
     await createActivityLog(action, message, details);
   };
-
-  // --- Handlers ---
 
   const handleSaveItem = async (
     itemData: Omit<InventoryItem, 'id' | 'lastUpdated'>, 
@@ -151,7 +161,6 @@ const App = () => {
 
     try {
       if (editId) {
-        // Edit existing item
         itemId = editId;
         const success = await updateItem(editId, itemData);
         
@@ -164,7 +173,6 @@ const App = () => {
           await addLog('update', `Item atualizado: ${itemData.name}`, 'Detalhes alterados');
         }
       } else {
-        // Add new or Merge
         const existingItem = inventory.find(
           i => i.name.toLowerCase() === itemData.name.toLowerCase() && i.unit === itemData.unit
         );
@@ -186,7 +194,6 @@ const App = () => {
             await addLog('restock', `Adicionou ao estoque: ${itemData.name}`, `+${itemData.quantity} ${itemData.unit}`);
           }
         } else {
-          // Criar novo item
           const newItem = await createItem(itemData);
           
           if (newItem) {
@@ -197,24 +204,19 @@ const App = () => {
         }
       }
 
-      // Save Store if new
-if (store && !savedStores.includes(store)) {
-  const storeSuccess = await addStore(store);
-  if (storeSuccess) {
-    // Recarregar lojas do Supabase para garantir sincronização
-    const updatedStores = await getStores();
-    if (updatedStores) {
-      setSavedStores(updatedStores);
-    } else {
-      // Fallback se falhar
-      setSavedStores(prev => [...prev, store]);
-    }
-    await addLog('create', `Nova loja salva: ${store}`);
-  }
-}
+      if (store && !savedStores.includes(store)) {
+        const storeSuccess = await addStore(store);
+        if (storeSuccess) {
+          const updatedStores = await getStores();
+          if (updatedStores) {
+            setSavedStores(updatedStores);
+          } else {
+            setSavedStores(prev => [...prev, store]);
+          }
+          await addLog('create', `Nova loja salva: ${store}`);
+        }
+      }
 
-
-      // Record Transaction if price provided
       if (initialPrice && store) {
         const record: PurchaseRecord = {
           id: Math.random().toString(36).substr(2, 9),
@@ -223,7 +225,8 @@ if (store && !savedStores.includes(store)) {
           storeName: store,
           price: initialPrice,
           quantity: itemData.quantity,
-          date: date || new Date().toISOString().split('T')[0]
+          date: date || new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString()
         };
         await addPurchaseRecord(record);
         setHistory(prev => [...prev, record]);
@@ -240,7 +243,6 @@ if (store && !savedStores.includes(store)) {
     if (!item) return;
 
     try {
-      // Log logic
       if (delta > 0) {
         await addLog('restock', `Estoque adicionado: ${item.name}`, `+${delta} ${item.unit}`);
       } else {
@@ -318,7 +320,6 @@ if (store && !savedStores.includes(store)) {
     setLogs([]);
   };
 
-  // --- Derived State ---
   const shoppingList = inventory.filter(i => i.quantity < i.minQuantity);
   const unreadLogsCount = logs.filter(l => !l.isRead).length;
   
@@ -344,38 +345,32 @@ if (store && !savedStores.includes(store)) {
       }
     });
 
-  // --- Helpers ---
   const getCategoryColor = (cat: string) => {
     const color = CATEGORY_COLORS[cat as Category];
-    return color || 'bg-indigo-100 text-indigo-800';
+    return color || 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
   };
-
-
-
-  // --- Render Helpers ---
 
   const renderInventoryList = () => (
     <div className="pb-24 space-y-4">
-      {/* Search and Sort Bar */}
       <div className="flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+          <Search className="absolute left-3 top-3 text-gray-400 dark:text-gray-500" size={20} />
           <input 
             type="text" 
             placeholder="Buscar itens..." 
-            className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-emerald-500 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="relative">
-          <div className="absolute left-3 top-3 text-emerald-600 pointer-events-none">
+          <div className="absolute left-3 top-3 text-emerald-600 dark:text-emerald-400 pointer-events-none">
             <ArrowUpDown size={20} />
           </div>
           <select 
             value={sortOption}
             onChange={(e) => setSortOption(e.target.value as SortOption)}
-            className="h-full pl-10 pr-4 rounded-xl border-none shadow-sm bg-white text-gray-700 focus:ring-2 focus:ring-emerald-500 appearance-none cursor-pointer text-sm font-medium"
+            className="h-full pl-10 pr-4 rounded-xl border-none shadow-sm bg-white dark:bg-gray-800 text-gray-700 dark:text-white focus:ring-2 focus:ring-emerald-500 appearance-none cursor-pointer text-sm font-medium"
             aria-label="Ordenar por"
           >
             <option value="name">Nome (A-Z)</option>
@@ -389,30 +384,29 @@ if (store && !savedStores.includes(store)) {
 
       <div className="grid gap-3">
         {filteredAndSortedInventory.map(item => (
-          <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2">
+          <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-2">
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryColor(item.category)}`}>
                   {item.category}
                 </span>
                {item.quantity < item.minQuantity && (
-    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold flex items-center gap-1">
+    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 font-bold flex items-center gap-1">
         <AlertCircle size={10} /> Baixo
     </span>
 )}
-
               </div>
               <div className="flex gap-2">
                 <button 
                   onClick={() => handleEditClick(item)}
-                  className="text-gray-300 hover:text-emerald-600 transition-colors p-1"
+                  className="text-gray-300 dark:text-gray-600 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors p-1"
                   aria-label="Editar item"
                 >
                   <Edit2 size={18} />
                 </button>
                 <button 
                   onClick={() => promptDeleteItem(item.id)}
-                  className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                  className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-1"
                   aria-label="Excluir item"
                 >
                   <Trash2 size={18} />
@@ -422,24 +416,27 @@ if (store && !savedStores.includes(store)) {
 
             <div className="flex justify-between items-center">
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-800 text-lg">{item.name}</h3>
-                <p className="text-xs text-gray-400">Min: {item.minQuantity} {item.unit}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-white text-lg">{item.name}</h3>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Min: {item.minQuantity} {item.unit}</p>
               </div>
               
               <div className="flex items-center gap-3">
                 <button 
                   onClick={() => handleUpdateQuantity(item.id, -1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                 >
                   <MinusCircle size={18} />
                 </button>
                 <div className="text-center min-w-[3rem]">
-                  <span className="block font-bold text-lg text-gray-800">{item.quantity}</span>
-                  <span className="text-xs text-gray-400 uppercase">{item.unit}</span>
+                  <span className="block font-bold text-lg text-gray-800 dark:text-white">{item.quantity}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 uppercase">{item.unit}</span>
                 </div>
                 <button 
-                  onClick={() => handleUpdateQuantity(item.id, 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                  onClick={() => {
+                    setEditingItem(item);
+                    setIsModalOpen(true);
+                  }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
                 >
                   <PlusCircle size={18} />
                 </button>
@@ -448,7 +445,7 @@ if (store && !savedStores.includes(store)) {
           </div>
         ))}
         {filteredAndSortedInventory.length === 0 && (
-          <div className="text-center py-10 text-gray-400">
+          <div className="text-center py-10 text-gray-400 dark:text-gray-500">
             Nenhum item encontrado.
           </div>
         )}
@@ -458,23 +455,23 @@ if (store && !savedStores.includes(store)) {
 
   const renderShoppingList = () => (
     <div className="pb-24 space-y-4">
-      <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 mb-4">
-        <h2 className="text-orange-800 font-bold text-lg">Precisa Comprar</h2>
-        <p className="text-orange-600 text-sm">Itens abaixo do estoque mínimo.</p>
+      <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-xl border border-orange-100 dark:border-orange-700 mb-4">
+        <h2 className="text-orange-800 dark:text-orange-200 font-bold text-lg">Precisa Comprar</h2>
+        <p className="text-orange-600 dark:text-orange-300 text-sm">Itens abaixo do estoque mínimo.</p>
       </div>
 
       {shoppingList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-          <CheckCircle size={48} className="text-emerald-300 mb-2" />
+        <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
+          <CheckCircle size={48} className="text-emerald-300 dark:text-emerald-600 mb-2" />
           <p>Tudo estocado!</p>
         </div>
       ) : (
         shoppingList.map(item => (
-          <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-400 flex justify-between items-center">
+          <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border-l-4 border-orange-400 flex justify-between items-center">
             <div>
-              <h3 className="font-bold text-gray-800">{item.name}</h3>
-              <p className="text-sm text-gray-500">
-                Estoque: <span className="text-red-500 font-bold">{item.quantity}</span> / {item.minQuantity} {item.unit}
+              <h3 className="font-bold text-gray-800 dark:text-white">{item.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Estoque: <span className="text-red-500 dark:text-red-400 font-bold">{item.quantity}</span> / {item.minQuantity} {item.unit}
               </p>
             </div>
             <button 
@@ -482,7 +479,7 @@ if (store && !savedStores.includes(store)) {
                 setEditingItem(null);
                 setIsModalOpen(true);
               }}
-              className="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700"
+              className="bg-emerald-600 dark:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors"
             >
               Comprar
             </button>
@@ -493,23 +490,34 @@ if (store && !savedStores.includes(store)) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 max-w-xl mx-auto shadow-2xl overflow-hidden relative">
+<div className="min-h-screen bg-gray-50 dark:bg-gray-900 max-w-xl mx-auto shadow-2xl overflow-hidden relative transition-colors">
+
+
       {/* Header */}
-      <header className="bg-white px-6 py-5 shadow-sm sticky top-0 z-10">
+      <header className="bg-white dark:bg-gray-800 px-6 py-5 shadow-sm sticky top-0 z-10 transition-colors">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-black text-gray-800 tracking-tight">Estoque<span className="text-emerald-600">Duo</span></h1>
-            <p className="text-xs text-gray-500 font-medium">Controle Doméstico Inteligente</p>
+            <h1 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Estoque<span className="text-emerald-600 dark:text-emerald-400">Duo</span></h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Controle Doméstico Inteligente</p>
           </div>
-          <button 
-            onClick={() => {
-              setEditingItem(null);
-              setIsModalOpen(true);
-            }}
-            className="bg-emerald-600 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 active:scale-95 transition-transform"
-          >
-            <Plus size={24} />
-          </button>
+          <div className="flex gap-2 items-center">
+            <button 
+              onClick={toggleDark}
+              className="text-gray-600 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              aria-label="Alternar modo escuro"
+            >
+              {isDark ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button 
+              onClick={() => {
+                setEditingItem(null);
+                setIsModalOpen(true);
+              }}
+              className="bg-emerald-600 dark:bg-emerald-700 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg hover:bg-emerald-700 dark:hover:bg-emerald-600 active:scale-95 transition-all"
+            >
+              <Plus size={24} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -518,16 +526,17 @@ if (store && !savedStores.includes(store)) {
         {activeTab === 'inventory' && renderInventoryList()}
         {activeTab === 'shopping' && renderShoppingList()}
         {activeTab === 'analysis' && <AnalysisView history={history} />}
+        {activeTab === 'prices' && <PriceComparisonView history={history} />}
         {activeTab === 'activity' && <ActivityFeed logs={logs} onClear={handleClearLogs} />}
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 max-w-xl mx-auto z-20">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-3 max-w-xl mx-auto z-20 transition-colors">
         <ul className="flex justify-between items-center">
           <li>
             <button 
               onClick={() => setActiveTab('inventory')}
-              className={`flex flex-col items-center gap-1 ${activeTab === 'inventory' ? 'text-emerald-600' : 'text-gray-400'}`}
+              className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'inventory' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}
             >
               <Home size={24} strokeWidth={activeTab === 'inventory' ? 2.5 : 2} />
               <span className="text-[10px] font-medium">Estoque</span>
@@ -536,7 +545,7 @@ if (store && !savedStores.includes(store)) {
           <li>
             <button 
               onClick={() => setActiveTab('shopping')}
-              className={`flex flex-col items-center gap-1 ${activeTab === 'shopping' ? 'text-emerald-600' : 'text-gray-400'}`}
+              className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'shopping' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}
             >
               <div className="relative">
                 <ShoppingCart size={24} strokeWidth={activeTab === 'shopping' ? 2.5 : 2} />
@@ -552,7 +561,7 @@ if (store && !savedStores.includes(store)) {
           <li>
             <button 
               onClick={() => setActiveTab('analysis')}
-              className={`flex flex-col items-center gap-1 ${activeTab === 'analysis' ? 'text-emerald-600' : 'text-gray-400'}`}
+              className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'analysis' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}
             >
               <BarChart2 size={24} strokeWidth={activeTab === 'analysis' ? 2.5 : 2} />
               <span className="text-[10px] font-medium">Análise</span>
@@ -560,8 +569,17 @@ if (store && !savedStores.includes(store)) {
           </li>
           <li>
             <button 
+              onClick={() => setActiveTab('prices')}
+              className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'prices' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}
+            >
+              <DollarSign size={24} strokeWidth={activeTab === 'prices' ? 2.5 : 2} />
+              <span className="text-[10px] font-medium">Preços</span>
+            </button>
+          </li>
+          <li>
+            <button 
               onClick={() => setActiveTab('activity')}
-              className={`flex flex-col items-center gap-1 ${activeTab === 'activity' ? 'text-emerald-600' : 'text-gray-400'}`}
+              className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'activity' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400 dark:text-gray-500'}`}
             >
               <div className="relative">
                 <Bell size={24} strokeWidth={activeTab === 'activity' ? 2.5 : 2} />
@@ -592,21 +610,21 @@ if (store && !savedStores.includes(store)) {
       {/* Delete Confirmation Modal */}
       {itemToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 scale-100 transform transition-transform">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Excluir Item?</h3>
-            <p className="text-gray-600 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm p-6 scale-100 transform transition-all">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Excluir Item?</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Tem certeza que deseja remover este item? O histórico de compras será mantido, mas o estoque será zerado.
             </p>
             <div className="flex justify-end gap-3">
               <button 
                 onClick={() => setItemToDelete(null)}
-                className="px-4 py-2 text-gray-700 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Cancelar
               </button>
               <button 
                 onClick={confirmDelete}
-                className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                className="px-4 py-2 bg-red-600 dark:bg-red-700 text-white font-medium rounded-lg hover:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm"
               >
                 Sim, Excluir
               </button>
@@ -619,4 +637,3 @@ if (store && !savedStores.includes(store)) {
 };
 
 export default App;
-

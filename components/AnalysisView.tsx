@@ -3,9 +3,15 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cart
 import { PurchaseRecord } from '../types';
 import { TrendingDown } from 'lucide-react';
 
+
+
+
 interface AnalysisViewProps {
   history: PurchaseRecord[];
 }
+
+
+
 
 export const AnalysisView: React.FC<AnalysisViewProps> = ({ history }) => {
   
@@ -21,25 +27,48 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ history }) => {
       });
     });
 
+
+
+
     return Array.from(storeMap.entries()).map(([name, stats]) => ({
       name,
       avgPrice: parseFloat((stats.total / stats.count).toFixed(2))
     }));
   }, [history]);
 
-  const recentItems = useMemo(() => {
-    // Get unique items and their last price
-    const itemMap = new Map<string, { price: number; store: string; date: string }>();
-    // Sort by date desc
-    const sorted = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    sorted.forEach(h => {
-        if (!itemMap.has(h.itemName)) {
-            itemMap.set(h.itemName, { price: h.price, store: h.storeName, date: h.date });
-        }
-    });
-    return Array.from(itemMap.entries()).slice(0, 5);
-  }, [history]);
+
+
+
+const recentItems = useMemo(() => {
+  const itemMap = new Map<string, { price: number; store: string; date: string }>();
+  
+  // Sort by date + createdAt desc
+  const sorted = [...history].sort((a, b) => {
+    const keyA = (a.date || '') + ' ' + (a.createdAt || '');
+    const keyB = (b.date || '') + ' ' + (b.createdAt || '');
+    return keyB.localeCompare(keyA);
+  });
+  
+  sorted.forEach(h => {
+      if (!itemMap.has(h.itemName)) {
+          let dateStr = 'Data não disponível';
+          
+          if (h.date && h.date.trim() !== '') {
+              const parts = h.date.split('-');
+              if (parts.length === 3) {
+                  dateStr = `${parts[2]}/${parts[1]}/${parts[0]}`;
+              }
+          }
+          
+          itemMap.set(h.itemName, { price: h.price, store: h.storeName, date: dateStr });
+      }
+  });
+  return Array.from(itemMap.entries()).slice(0, 5);
+}, [history]);
+
+
+
+
 
   return (
     <div className="space-y-6 pb-20">
@@ -71,6 +100,9 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ history }) => {
         )}
       </div>
 
+
+
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-4 border-b border-gray-100 bg-gray-50">
             <h3 className="font-semibold text-gray-700">Últimas Referências de Preço</h3>
@@ -80,7 +112,7 @@ export const AnalysisView: React.FC<AnalysisViewProps> = ({ history }) => {
                 <li key={idx} className="flex justify-between items-center p-4 border-b border-gray-100 last:border-0">
                     <div>
                         <p className="font-medium text-gray-800">{name}</p>
-                        <p className="text-xs text-gray-500">{details.store} • {new Date(details.date).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs text-gray-500">{details.store} • {details.date}</p>
                     </div>
                     <div className="font-bold text-emerald-600">
                         R$ {details.price.toFixed(2)}
