@@ -1,5 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getItems, createItem, updateItem, deleteItem, createActivityLog } from '@/lib/supabaseQueries';
+import { 
+  getItems, 
+  createItem, 
+  updateItem, 
+  deleteItem, 
+  createActivityLog,
+  getCategories,
+  addCategory,
+  removeCategory,
+  getStores,
+  addStore,
+  getPurchaseHistory,
+  addPurchaseRecord,
+  getActivityLogs
+} from '@/lib/supabaseQueries';
 
 import { 
   Home, 
@@ -26,33 +40,25 @@ const App = () => {
   // --- State ---
   const [activeTab, setActiveTab] = useState<Tab>('inventory');
   
-  // Inventory - agora carrega do Supabase
+  // Inventory - carrega do Supabase
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryLoaded, setInventoryLoaded] = useState(false);
 
-  // Categories - mantém localStorage por enquanto
-  const [categories, setCategories] = useState<string[]>(() => {
-    const saved = localStorage.getItem('categories');
-    return saved ? JSON.parse(saved) : Object.values(Category);
-  });
+  // Categories - carrega do Supabase
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
 
-  // History - mantém localStorage por enquanto
-  const [history, setHistory] = useState<PurchaseRecord[]>(() => {
-    const saved = localStorage.getItem('history');
-    return saved ? JSON.parse(saved) : INITIAL_HISTORY;
-  });
+  // History - carrega do Supabase
+  const [history, setHistory] = useState<PurchaseRecord[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  // Saved Stores - mantém localStorage por enquanto
-  const [savedStores, setSavedStores] = useState<string[]>(() => {
-    const saved = localStorage.getItem('savedStores');
-    return saved ? JSON.parse(saved) : ['Mercado A', 'Atacado B'];
-  });
+  // Saved Stores - carrega do Supabase
+  const [savedStores, setSavedStores] = useState<string[]>([]);
+  const [storesLoaded, setStoresLoaded] = useState(false);
 
-  // Activity Logs - mantém localStorage por enquanto
-  const [logs, setLogs] = useState<ActivityLog[]>(() => {
-    const saved = localStorage.getItem('activityLogs');
-    return saved ? JSON.parse(saved) : INITIAL_LOGS;
-  });
+  // Activity Logs - carrega do Supabase
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [logsLoaded, setLogsLoaded] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -62,40 +68,45 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
 
-  // --- Effects ---
-  
-  // Carregar itens do Supabase ao montar o componente
-  useEffect(() => {
-    async function loadInventory() {
-      const items = await getItems();
-      if (items) {
-        setInventory(items);
-      }
-      setInventoryLoaded(true);
-    }
+  // --- Effects: Load all data from Supabase on mount ---
 
-    loadInventory();
+  // Carregar todos os dados ao montar
+  useEffect(() => {
+    loadAllData();
   }, []);
 
-  // Manter localStorage para history
-  useEffect(() => {
-    localStorage.setItem('history', JSON.stringify(history));
-  }, [history]);
+  const loadAllData = async () => {
+    try {
+      // Load items
+      const itemsData = await getItems();
+      if (itemsData) setInventory(itemsData);
+      setInventoryLoaded(true);
 
-  // Manter localStorage para categories
-  useEffect(() => {
-    localStorage.setItem('categories', JSON.stringify(categories));
-  }, [categories]);
+      // Load categories
+      const categoriesData = await getCategories();
+      if (categoriesData) {
+        setCategories(categoriesData.length > 0 ? categoriesData : Object.values(Category));
+      }
+      setCategoriesLoaded(true);
 
-  // Manter localStorage para savedStores
-  useEffect(() => {
-    localStorage.setItem('savedStores', JSON.stringify(savedStores));
-  }, [savedStores]);
+      // Load history
+      const historyData = await getPurchaseHistory();
+      if (historyData) setHistory(historyData);
+      setHistoryLoaded(true);
 
-  // Manter localStorage para activityLogs
-  useEffect(() => {
-    localStorage.setItem('activityLogs', JSON.stringify(logs));
-  }, [logs]);
+      // Load stores
+      const storesData = await getStores();
+      if (storesData) setSavedStores(storesData.length > 0 ? storesData : []);
+      setStoresLoaded(true);
+
+      // Load activity logs
+      const logsData = await getActivityLogs();
+      if (logsData) setLogs(logsData);
+      setLogsLoaded(true);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    }
+  };
 
   // Mark logs as read when opening activity tab
   useEffect(() => {
@@ -109,8 +120,8 @@ const App = () => {
     }
   }, [activeTab, logs]);
 
-  // --- Logic Helper: Add Log ---
-  const addLog = (action: ActivityAction, message: string, details?: string) => {
+  // --- Logic Helper: Add Log (Local + Supabase) ---
+  const addLog = async (action: ActivityAction, message: string, details?: string) => {
     const newLog: ActivityLog = {
       id: Math.random().toString(36).substr(2, 9),
       action,
@@ -119,7 +130,12 @@ const App = () => {
       timestamp: new Date().toISOString(),
       isRead: false
     };
+    
+    // Add locally
     setLogs(prev => [newLog, ...prev].slice(0, 50));
+    
+    // Add to Supabase
+    await createActivityLog(action, message, details);
   };
 
   // --- Handlers ---
@@ -135,19 +151,17 @@ const App = () => {
 
     try {
       if (editId) {
-        // Edit existing item - salvar no Supabase
+        // Edit existing item
         itemId = editId;
         const success = await updateItem(editId, itemData);
         
         if (success) {
-          // Atualizar estado local
           setInventory(prev => prev.map(item => 
             item.id === editId 
               ? { ...item, ...itemData, lastUpdated: new Date().toISOString() }
               : item
           ));
-          await createActivityLog('update', `Item atualizado: ${itemData.name}`, 'Detalhes alterados');
-          addLog('update', `Item atualizado: ${itemData.name}`, 'Detalhes alterados');
+          await addLog('update', `Item atualizado: ${itemData.name}`, 'Detalhes alterados');
         }
       } else {
         // Add new or Merge
@@ -169,27 +183,36 @@ const App = () => {
                 ? { ...item, quantity: newQuantity, lastUpdated: new Date().toISOString() }
                 : item
             ));
-            await createActivityLog('restock', `Adicionou ao estoque: ${itemData.name}`, `+${itemData.quantity} ${itemData.unit}`);
-            addLog('restock', `Adicionou ao estoque: ${itemData.name}`, `+${itemData.quantity} ${itemData.unit}`);
+            await addLog('restock', `Adicionou ao estoque: ${itemData.name}`, `+${itemData.quantity} ${itemData.unit}`);
           }
         } else {
-          // Criar novo item no Supabase
+          // Criar novo item
           const newItem = await createItem(itemData);
           
           if (newItem) {
             itemId = newItem.id;
             setInventory(prev => [...prev, newItem]);
-            await createActivityLog('create', `Novo item cadastrado: ${itemData.name}`, `Estoque: ${itemData.quantity}`);
-            addLog('create', `Novo item cadastrado: ${itemData.name}`, `Estoque: ${itemData.quantity}`);
+            await addLog('create', `Novo item cadastrado: ${itemData.name}`, `Estoque: ${itemData.quantity}`);
           }
         }
       }
 
       // Save Store if new
-      if (store && !savedStores.includes(store)) {
-        setSavedStores(prev => [...prev, store]);
-        addLog('create', `Nova loja salva: ${store}`);
-      }
+if (store && !savedStores.includes(store)) {
+  const storeSuccess = await addStore(store);
+  if (storeSuccess) {
+    // Recarregar lojas do Supabase para garantir sincronização
+    const updatedStores = await getStores();
+    if (updatedStores) {
+      setSavedStores(updatedStores);
+    } else {
+      // Fallback se falhar
+      setSavedStores(prev => [...prev, store]);
+    }
+    await addLog('create', `Nova loja salva: ${store}`);
+  }
+}
+
 
       // Record Transaction if price provided
       if (initialPrice && store) {
@@ -202,13 +225,13 @@ const App = () => {
           quantity: itemData.quantity,
           date: date || new Date().toISOString().split('T')[0]
         };
+        await addPurchaseRecord(record);
         setHistory(prev => [...prev, record]);
-        await createActivityLog('purchase', `Compra registrada: ${itemData.name}`, `R$ ${initialPrice.toFixed(2)} em ${store}`);
-        addLog('purchase', `Compra registrada: ${itemData.name}`, `R$ ${initialPrice.toFixed(2)} em ${store}`);
+        await addLog('purchase', `Compra registrada: ${itemData.name}`, `R$ ${initialPrice.toFixed(2)} em ${store}`);
       }
     } catch (error) {
       console.error('Erro ao salvar item:', error);
-      addLog('error', 'Erro ao salvar item', String(error));
+      await addLog('error', 'Erro ao salvar item', String(error));
     }
   };
 
@@ -217,13 +240,11 @@ const App = () => {
     if (!item) return;
 
     try {
-      // Log logic before update
+      // Log logic
       if (delta > 0) {
-        addLog('restock', `Estoque adicionado: ${item.name}`, `+${delta} ${item.unit}`);
-        await createActivityLog('restock', `Estoque adicionado: ${item.name}`, `+${delta} ${item.unit}`);
+        await addLog('restock', `Estoque adicionado: ${item.name}`, `+${delta} ${item.unit}`);
       } else {
-        addLog('consume', `Item consumido: ${item.name}`, `${delta} ${item.unit}`);
-        await createActivityLog('consume', `Item consumido: ${item.name}`, `${delta} ${item.unit}`);
+        await addLog('consume', `Item consumido: ${item.name}`, `${delta} ${item.unit}`);
       }
 
       const newQty = Math.max(0, item.quantity + delta);
@@ -251,8 +272,7 @@ const App = () => {
       try {
         const item = inventory.find(i => i.id === itemToDelete);
         if (item) {
-          addLog('delete', `Item removido: ${item.name}`, 'Excluído do estoque');
-          await createActivityLog('delete', `Item removido: ${item.name}`, 'Excluído do estoque');
+          await addLog('delete', `Item removido: ${item.name}`, 'Excluído do estoque');
         }
         
         const success = await deleteItem(itemToDelete);
@@ -276,24 +296,30 @@ const App = () => {
     setEditingItem(null);
   };
 
-  const handleAddCategory = (cat: string) => {
+  const handleAddCategory = async (cat: string) => {
     if (!categories.includes(cat)) {
-      setCategories(prev => [...prev, cat]);
-      addLog('create', `Nova categoria: ${cat}`);
+      const success = await addCategory(cat);
+      if (success) {
+        setCategories(prev => [...prev, cat]);
+        await addLog('create', `Nova categoria: ${cat}`);
+      }
     }
   };
 
-  const handleRemoveCategory = (cat: string) => {
-    setCategories(prev => prev.filter(c => c !== cat));
-    addLog('delete', `Categoria removida: ${cat}`);
+  const handleRemoveCategory = async (cat: string) => {
+    const success = await removeCategory(cat);
+    if (success) {
+      setCategories(prev => prev.filter(c => c !== cat));
+      await addLog('delete', `Categoria removida: ${cat}`);
+    }
   };
 
-  const handleClearLogs = () => {
+  const handleClearLogs = async () => {
     setLogs([]);
   };
 
   // --- Derived State ---
-  const shoppingList = inventory.filter(i => i.quantity <= i.minQuantity);
+  const shoppingList = inventory.filter(i => i.quantity < i.minQuantity);
   const unreadLogsCount = logs.filter(l => !l.isRead).length;
   
   const filteredAndSortedInventory = inventory
@@ -323,6 +349,8 @@ const App = () => {
     const color = CATEGORY_COLORS[cat as Category];
     return color || 'bg-indigo-100 text-indigo-800';
   };
+
+
 
   // --- Render Helpers ---
 
@@ -367,11 +395,12 @@ const App = () => {
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryColor(item.category)}`}>
                   {item.category}
                 </span>
-                {item.quantity <= item.minQuantity && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold flex items-center gap-1">
-                    <AlertCircle size={10} /> Baixo
-                  </span>
-                )}
+               {item.quantity < item.minQuantity && (
+    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-bold flex items-center gap-1">
+        <AlertCircle size={10} /> Baixo
+    </span>
+)}
+
               </div>
               <div className="flex gap-2">
                 <button 
@@ -590,3 +619,4 @@ const App = () => {
 };
 
 export default App;
+

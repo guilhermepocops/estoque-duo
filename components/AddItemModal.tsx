@@ -31,6 +31,8 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [price, setPrice] = useState<string>('');
   const [store, setStore] = useState('');
   const [date, setDate] = useState('');
+  const [showStoreDropdown, setShowStoreDropdown] = useState(false);
+  
 
   // Category Management State
   const [isManagingCats, setIsManagingCats] = useState(false);
@@ -287,25 +289,52 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Loja / Mercado</label>
-                            <input
-                            type="text"
-                            list="saved-stores"
-                            value={store}
-                            onChange={(e) => setStore(e.target.value)}
-                            placeholder="Digite ou selecione..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                            />
-                            <datalist id="saved-stores">
-                                {savedStores.map((s, idx) => (
-                                    <option key={idx} value={s} />
-                                ))}
-                            </datalist>
-                            <p className="text-xs text-gray-500 mt-1">
-                                {store && !savedStores.includes(store) ? 'Esta loja será salva automaticamente.' : 'Selecione uma loja salva ou digite uma nova.'}
-                            </p>
-                        </div>
+                       
+<div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Loja / Mercado</label>
+    <div className="relative">
+        <input
+            type="text"
+            value={store}
+            onChange={(e) => setStore(e.target.value)}
+            onFocus={() => setShowStoreDropdown(true)}
+            onBlur={() => setTimeout(() => setShowStoreDropdown(false), 200)}
+            placeholder="Digite ou clique para selecionar..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none pr-10"
+        />
+        {savedStores.length > 0 && (
+            <div className="absolute right-3 top-2.5 text-gray-400 pointer-events-none">
+                ▼
+            </div>
+        )}
+        
+        {/* Dropdown de sugestões - APENAS quando focado */}
+        {showStoreDropdown && savedStores.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+                {savedStores.map((s) => (
+                    <button
+                        key={s}
+                        type="button"
+                        onClick={() => {
+                            setStore(s);
+                            setShowStoreDropdown(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 text-sm text-gray-800"
+                    >
+                        {s}
+                    </button>
+                ))}
+            </div>
+        )}
+    </div>
+    <p className="text-xs text-gray-500 mt-1">
+        {store && !savedStores.includes(store) 
+            ? '✓ Esta loja será salva automaticamente.' 
+            : 'Selecione uma loja salva ou digite uma nova.'}
+    </p>
+</div>
+
+
                     </div>
                 </div>
 
