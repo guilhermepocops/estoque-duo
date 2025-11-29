@@ -13,6 +13,8 @@ export enum Category {
   HYGIENE = 'Higiene',
   OTHER = 'Outros'
 }
+export type ItemStatus = 'full' | 'almost_empty';
+
 
 export interface InventoryItem {
   id: string;
@@ -22,6 +24,7 @@ export interface InventoryItem {
   minQuantity: number; // Reorder point
   unit: UnitType;
   lastUpdated: string;
+  status?: ItemStatus;
 }
 
 export interface PurchaseRecord {

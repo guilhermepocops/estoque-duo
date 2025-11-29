@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { UnitType, InventoryItem } from '../types';
+import { UnitType, InventoryItem, ItemStatus } from '../types';
 import { X, Settings, Plus, Trash2, CheckCircle, Calendar, Store } from 'lucide-react';
+
 
 interface AddItemModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AddItemModalProps {
   initialData?: InventoryItem | null;
   savedStores: string[];
 }
+
 
 export const AddItemModal: React.FC<AddItemModalProps> = ({ 
   isOpen, 
@@ -28,18 +30,22 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [minQuantity, setMinQuantity] = useState(1);
   const [unit, setUnit] = useState<UnitType>(UnitType.UNIT);
+  const [status, setStatus] = useState<ItemStatus>('full');  // ← ADD ESSA LINHA
   const [price, setPrice] = useState<string>('');
   const [store, setStore] = useState('');
   const [date, setDate] = useState('');
   const [showStoreDropdown, setShowStoreDropdown] = useState(false);
   
 
+
   // Category Management State
   const [isManagingCats, setIsManagingCats] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
+
   // Feedback State
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
 
   // Load initial data if editing
   useEffect(() => {
@@ -49,6 +55,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         setQuantity(initialData.quantity);
         setMinQuantity(initialData.minQuantity);
         setUnit(initialData.unit);
+        setStatus(initialData.status || 'full');  // ← ADD ESSA LINHA
         setPrice('');
         setStore('');
         setDate(new Date().toISOString().split('T')[0]);
@@ -59,30 +66,36 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         setQuantity(1);
         setMinQuantity(1);
         setUnit(UnitType.UNIT);
+        setStatus('full');  // ← ADD ESSA LINHA
         setPrice('');
         setStore('');
         setDate(new Date().toISOString().split('T')[0]);
     }
   }, [isOpen, initialData, categories]);
 
+
   if (!isOpen) return null;
+
 
   const triggerFeedback = (msg: string) => {
     setFeedbackMessage(msg);
     setTimeout(() => setFeedbackMessage(null), 3000);
   };
 
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(
-      { name, category, quantity, minQuantity, unit },
+      { name, category, quantity, minQuantity, unit, status },  // ← ADD status
       price ? parseFloat(price) : undefined,
       store,
       date,
       initialData?.id // Pass ID if editing
     );
 
+
     triggerFeedback(initialData ? 'Item atualizado!' : 'Item salvo com sucesso!');
+
 
     // Delay closing slightly to show success message
     setTimeout(() => {
@@ -92,6 +105,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
         // Form reset happens in useEffect when reopening
     }, 1500);
   };
+
 
   const handleAddNewCategory = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,34 +117,38 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
     }
   };
 
+
   const handleManualClose = () => {
     setFeedbackMessage(null);
     onClose();
   };
 
+
   const isEditing = !!initialData;
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col relative">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col relative">
         
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 shrink-0">
-          <h3 className="text-lg font-semibold text-gray-800">
+        <div className="flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700 shrink-0">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
             {isManagingCats ? 'Gerenciar Categorias' : (isEditing ? 'Editar Item' : 'Novo Item / Compra')}
           </h3>
-          <button onClick={handleManualClose} className="text-gray-500 hover:text-gray-700">
+          <button onClick={handleManualClose} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
             <X size={24} />
           </button>
         </div>
         
         {/* Feedback Alert */}
         {feedbackMessage && (
-            <div className="mx-4 mt-4 bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg flex items-center gap-2 animate-pulse">
+            <div className="mx-4 mt-4 bg-emerald-50 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-700 text-emerald-700 dark:text-emerald-200 px-4 py-3 rounded-lg flex items-center gap-2 animate-pulse">
                 <CheckCircle size={18} />
                 <span className="text-sm font-medium">{feedbackMessage}</span>
             </div>
         )}
+
 
         <div className="overflow-y-auto p-4">
             {isManagingCats ? (
@@ -141,28 +159,29 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                             value={newCatName}
                             onChange={(e) => setNewCatName(e.target.value)}
                             placeholder="Nova categoria..."
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         />
                         <button 
                             type="submit"
-                            className="bg-emerald-600 text-white p-2 rounded-lg hover:bg-emerald-700"
+                            className="bg-emerald-600 dark:bg-emerald-700 text-white p-2 rounded-lg hover:bg-emerald-700 dark:hover:bg-emerald-600"
                         >
                             <Plus size={20} />
                         </button>
                     </form>
 
+
                     <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Categorias Existentes</h4>
+                        <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Categorias Existentes</h4>
                         <ul className="space-y-2">
                             {categories.map(cat => (
-                                <li key={cat} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
-                                    <span className="text-gray-800">{cat}</span>
+                                <li key={cat} className="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                                    <span className="text-gray-800 dark:text-gray-200">{cat}</span>
                                     <button 
                                         onClick={() => {
                                             onRemoveCategory(cat);
                                             triggerFeedback('Categoria removida');
                                         }}
-                                        className="text-gray-400 hover:text-red-500 p-1"
+                                        className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 p-1"
                                         title="Remover"
                                     >
                                         <Trash2 size={16} />
@@ -172,9 +191,10 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         </ul>
                     </div>
 
+
                     <button 
                         onClick={() => setIsManagingCats(false)}
-                        className="w-full mt-4 text-emerald-600 font-medium hover:text-emerald-700 py-2"
+                        className="w-full mt-4 text-emerald-600 dark:text-emerald-400 font-medium hover:text-emerald-700 dark:hover:text-emerald-300 py-2"
                     >
                         Voltar para o item
                     </button>
@@ -182,25 +202,26 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Produto</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Produto</label>
                     <input
                     required
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     placeholder="Ex: Arroz Tipo 1"
                     />
                 </div>
 
+
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Categoria</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categoria</label>
                             <button 
                                 type="button" 
                                 onClick={() => setIsManagingCats(true)}
-                                className="text-emerald-600 hover:text-emerald-800"
+                                className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300"
                                 title="Gerenciar categorias"
                             >
                                 <Settings size={14} />
@@ -209,7 +230,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         <select
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         >
                             {categories.map((cat) => (
                             <option key={cat} value={cat}>{cat}</option>
@@ -217,11 +238,11 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                         </select>
                     </div>
                     <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unidade</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade</label>
                     <select
                         value={unit}
                         onChange={(e) => setUnit(e.target.value as UnitType)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     >
                         {Object.values(UnitType).map((u) => (
                         <option key={u} value={u}>{u}</option>
@@ -230,33 +251,49 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     </div>
                 </div>
 
+
                 <div className="grid grid-cols-2 gap-4">
                     <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade Atual</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade Atual</label>
                     <input
                         type="number"
                         min="0"
                         step="0.1"
                         value={quantity}
                         onChange={(e) => setQuantity(parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                     </div>
                     <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mínimo Ideal</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mínimo Ideal</label>
                     <input
                         type="number"
                         min="0"
                         step="0.1"
                         value={minQuantity}
                         onChange={(e) => setMinQuantity(parseFloat(e.target.value))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                     />
                     </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-100 bg-gray-50 -mx-4 px-4 pb-2">
-                    <h4 className="text-sm font-semibold text-emerald-700 mb-3 mt-2 flex items-center gap-1">
+                {/* Status Select */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status do Item</label>
+                    <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value as ItemStatus)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    >
+                        <option value="full">Cheio</option>
+                        <option value="in_use">Em Excesso</option>
+                        <option value="almost_empty">Quase Acabando</option>
+                    </select>
+                </div>
+
+
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 -mx-4 px-4 pb-2">
+                    <h4 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-3 mt-2 flex items-center gap-1">
                         <Store size={16} />
                         {isEditing ? 'Atualizar Dados de Compra (Opcional)' : 'Detalhes da Compra (Opcional)'}
                     </h4>
@@ -264,7 +301,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                     <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Preço (R$)</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preço (R$)</label>
                                 <input
                                 type="number"
                                 min="0"
@@ -272,26 +309,27 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                                 value={price}
                                 onChange={(e) => setPrice(e.target.value)}
                                 placeholder="0.00"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data</label>
                                 <div className="relative">
                                     <input
                                     type="date"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                                     />
-                                    <Calendar className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                                    <Calendar className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" size={16} />
                                 </div>
                             </div>
                         </div>
 
+
                        
 <div>
-    <label className="block text-sm font-medium text-gray-700 mb-1">Loja / Mercado</label>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Loja / Mercado</label>
     <div className="relative">
         <input
             type="text"
@@ -300,17 +338,17 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             onFocus={() => setShowStoreDropdown(true)}
             onBlur={() => setTimeout(() => setShowStoreDropdown(false), 200)}
             placeholder="Digite ou clique para selecionar..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none pr-10"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none pr-10"
         />
         {savedStores.length > 0 && (
-            <div className="absolute right-3 top-2.5 text-gray-400 pointer-events-none">
+            <div className="absolute right-3 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none">
                 ▼
             </div>
         )}
         
         {/* Dropdown de sugestões - APENAS quando focado */}
         {showStoreDropdown && savedStores.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10 max-h-40 overflow-y-auto">
                 {savedStores.map((s) => (
                     <button
                         key={s}
@@ -319,7 +357,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
                             setStore(s);
                             setShowStoreDropdown(false);
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-emerald-50 border-b border-gray-100 last:border-b-0 text-sm text-gray-800"
+                        className="w-full text-left px-3 py-2 hover:bg-emerald-50 dark:hover:bg-emerald-900 border-b border-gray-100 dark:border-gray-700 last:border-b-0 text-sm text-gray-800 dark:text-gray-200"
                     >
                         {s}
                     </button>
@@ -327,7 +365,7 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
             </div>
         )}
     </div>
-    <p className="text-xs text-gray-500 mt-1">
+    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
         {store && !savedStores.includes(store) 
             ? '✓ Esta loja será salva automaticamente.' 
             : 'Selecione uma loja salva ou digite uma nova.'}
@@ -335,12 +373,14 @@ export const AddItemModal: React.FC<AddItemModalProps> = ({
 </div>
 
 
+
                     </div>
                 </div>
 
+
                 <button
                     type="submit"
-                    className="w-full mt-2 bg-emerald-600 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 transition-colors shadow-sm"
+                    className="w-full mt-2 bg-emerald-600 dark:bg-emerald-700 text-white py-3 rounded-lg font-medium hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors shadow-sm"
                 >
                     {isEditing ? 'Salvar Alterações' : 'Salvar Item'}
                 </button>

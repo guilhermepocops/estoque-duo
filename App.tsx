@@ -15,6 +15,7 @@ import {
   getActivityLogs
 } from '@/lib/supabaseQueries';
 
+
 import { 
   Home, 
   ShoppingCart, 
@@ -34,15 +35,17 @@ import {
   Sun
 } from 'lucide-react';
 import { PriceComparisonView } from './components/PriceComparisonView';
-import { InventoryItem, PurchaseRecord, Tab, Category, UnitType, SortOption, ActivityLog, ActivityAction } from './types';
+import { InventoryItem, PurchaseRecord, Tab, Category, UnitType, SortOption, ActivityLog, ActivityAction, ItemStatus } from './types';
 import { INITIAL_INVENTORY, INITIAL_HISTORY, CATEGORY_COLORS, INITIAL_LOGS } from './constants';
 import { AddItemModal } from './components/AddItemModal';
 import { AnalysisView } from './components/AnalysisView';
 import { ActivityFeed } from './components/ActivityFeed';
 
+
 const App = () => {
   // --- Dark Mode State ---
   const [isDark, setIsDark] = useState(false);
+
 
   useEffect(() => {
     const saved = localStorage.getItem('estoqueduo-dark-mode');
@@ -55,6 +58,7 @@ const App = () => {
     }
   }, []);
 
+
   const toggleDark = () => {
     const newValue = !isDark;
     setIsDark(newValue);
@@ -66,23 +70,29 @@ const App = () => {
     }
   };
 
+
   // --- State ---
   const [activeTab, setActiveTab] = useState<Tab>('inventory');
   
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryLoaded, setInventoryLoaded] = useState(false);
 
+
   const [categories, setCategories] = useState<string[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
+
 
   const [history, setHistory] = useState<PurchaseRecord[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
+
   const [savedStores, setSavedStores] = useState<string[]>([]);
   const [storesLoaded, setStoresLoaded] = useState(false);
 
+
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [logsLoaded, setLogsLoaded] = useState(false);
+
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -91,11 +101,14 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('name');
 
+
   // --- Effects: Load all data from Supabase on mount ---
+
 
   useEffect(() => {
     loadAllData();
   }, []);
+
 
   const loadAllData = async () => {
     try {
@@ -103,19 +116,23 @@ const App = () => {
       if (itemsData) setInventory(itemsData);
       setInventoryLoaded(true);
 
+
       const categoriesData = await getCategories();
       if (categoriesData) {
         setCategories(categoriesData.length > 0 ? categoriesData : Object.values(Category));
       }
       setCategoriesLoaded(true);
 
+
       const historyData = await getPurchaseHistory();
       if (historyData) setHistory(historyData);
       setHistoryLoaded(true);
 
+
       const storesData = await getStores();
       if (storesData) setSavedStores(storesData.length > 0 ? storesData : []);
       setStoresLoaded(true);
+
 
       const logsData = await getActivityLogs();
       if (logsData) setLogs(logsData);
@@ -124,6 +141,7 @@ const App = () => {
       console.error('Erro ao carregar dados:', error);
     }
   };
+
 
   useEffect(() => {
     if (activeTab === 'activity') {
@@ -135,6 +153,7 @@ const App = () => {
       }
     }
   }, [activeTab, logs]);
+
 
   const addLog = async (action: ActivityAction, message: string, details?: string) => {
     const newLog: ActivityLog = {
@@ -150,6 +169,7 @@ const App = () => {
     await createActivityLog(action, message, details);
   };
 
+
   const handleSaveItem = async (
     itemData: Omit<InventoryItem, 'id' | 'lastUpdated'>, 
     initialPrice?: number, 
@@ -158,6 +178,7 @@ const App = () => {
     editId?: string
   ) => {
     let itemId: string;
+
 
     try {
       if (editId) {
@@ -176,6 +197,7 @@ const App = () => {
         const existingItem = inventory.find(
           i => i.name.toLowerCase() === itemData.name.toLowerCase() && i.unit === itemData.unit
         );
+
 
         if (existingItem) {
           itemId = existingItem.id;
@@ -204,6 +226,7 @@ const App = () => {
         }
       }
 
+
       if (store && !savedStores.includes(store)) {
         const storeSuccess = await addStore(store);
         if (storeSuccess) {
@@ -216,6 +239,7 @@ const App = () => {
           await addLog('create', `Nova loja salva: ${store}`);
         }
       }
+
 
       if (initialPrice && store) {
         const record: PurchaseRecord = {
@@ -238,9 +262,11 @@ const App = () => {
     }
   };
 
+
   const handleUpdateQuantity = async (id: string, delta: number) => {
     const item = inventory.find(i => i.id === id);
     if (!item) return;
+
 
     try {
       if (delta > 0) {
@@ -249,8 +275,10 @@ const App = () => {
         await addLog('consume', `Item consumido: ${item.name}`, `${delta} ${item.unit}`);
       }
 
+
       const newQty = Math.max(0, item.quantity + delta);
       const success = await updateItem(id, { ...item, quantity: newQty });
+
 
       if (success) {
         setInventory(prev => prev.map(it => {
@@ -265,9 +293,11 @@ const App = () => {
     }
   };
 
+
   const promptDeleteItem = (id: string) => {
     setItemToDelete(id);
   };
+
 
   const confirmDelete = async () => {
     if (itemToDelete) {
@@ -288,15 +318,18 @@ const App = () => {
     }
   };
 
+
   const handleEditClick = (item: InventoryItem) => {
     setEditingItem(item);
     setIsModalOpen(true);
   };
 
+
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingItem(null);
   };
+
 
   const handleAddCategory = async (cat: string) => {
     if (!categories.includes(cat)) {
@@ -308,6 +341,7 @@ const App = () => {
     }
   };
 
+
   const handleRemoveCategory = async (cat: string) => {
     const success = await removeCategory(cat);
     if (success) {
@@ -316,9 +350,11 @@ const App = () => {
     }
   };
 
+
   const handleClearLogs = async () => {
     setLogs([]);
   };
+
 
   const shoppingList = inventory.filter(i => i.quantity < i.minQuantity);
   const unreadLogsCount = logs.filter(l => !l.isRead).length;
@@ -345,10 +381,39 @@ const App = () => {
       }
     });
 
+
   const getCategoryColor = (cat: string) => {
     const color = CATEGORY_COLORS[cat as Category];
     return color || 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
   };
+
+  // ← ADD ESSAS FUNÇÕES HELPERS
+  const getStatusBadge = (status?: ItemStatus) => {
+    switch (status) {
+      case 'full':
+        return 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200';
+      case 'in_use':
+        return 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200';
+      case 'almost_empty':
+        return 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200';
+      default:
+        return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+    }
+  };
+
+  const getStatusLabel = (status?: ItemStatus) => {
+    switch (status) {
+      case 'full':
+        return 'Cheio';
+      case 'in_use':
+        return 'Em Excesso';
+      case 'almost_empty':
+        return 'Quase Acabando';
+      default:
+        return 'Normal';
+    }
+  };
+
 
   const renderInventoryList = () => (
     <div className="pb-24 space-y-4">
@@ -382,19 +447,23 @@ const App = () => {
         </div>
       </div>
 
+
       <div className="grid gap-3">
         {filteredAndSortedInventory.map(item => (
           <div key={item.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col gap-2">
             <div className="flex justify-between items-start">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getCategoryColor(item.category)}`}>
                   {item.category}
                 </span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusBadge(item.status)}`}>
+                  {getStatusLabel(item.status)}
+                </span>
                {item.quantity < item.minQuantity && (
-    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 font-bold flex items-center gap-1">
-        <AlertCircle size={10} /> Baixo
-    </span>
-)}
+                <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 font-bold flex items-center gap-1">
+                    <AlertCircle size={10} /> Baixo
+                </span>
+              )}
               </div>
               <div className="flex gap-2">
                 <button 
@@ -413,6 +482,7 @@ const App = () => {
                 </button>
               </div>
             </div>
+
 
             <div className="flex justify-between items-center">
               <div className="flex-1">
@@ -453,12 +523,14 @@ const App = () => {
     </div>
   );
 
+
   const renderShoppingList = () => (
     <div className="pb-24 space-y-4">
       <div className="bg-orange-50 dark:bg-orange-900 p-4 rounded-xl border border-orange-100 dark:border-orange-700 mb-4">
         <h2 className="text-orange-800 dark:text-orange-200 font-bold text-lg">Precisa Comprar</h2>
         <p className="text-orange-600 dark:text-orange-300 text-sm">Itens abaixo do estoque mínimo.</p>
       </div>
+
 
       {shoppingList.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400 dark:text-gray-500">
@@ -489,12 +561,11 @@ const App = () => {
     </div>
   );
 
+
   return (
-<div className="min-h-screen bg-gray-50 dark:bg-gray-900 max-w-xl mx-auto shadow-2xl overflow-hidden relative transition-colors">
-
-
+    <div className={isDark ? "min-h-screen bg-gray-900 text-white max-w-xl mx-auto shadow-2xl overflow-hidden relative transition-colors" : "min-h-screen bg-gray-50 text-gray-900 max-w-xl mx-auto shadow-2xl overflow-hidden relative transition-colors"}>
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 px-6 py-5 shadow-sm sticky top-0 z-10 transition-colors">
+      <header className={isDark ? "bg-gray-800 px-6 py-5 shadow-sm sticky top-0 z-10 transition-colors" : "bg-white px-6 py-5 shadow-sm sticky top-0 z-10 transition-colors"}>
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Estoque<span className="text-emerald-600 dark:text-emerald-400">Duo</span></h1>
@@ -521,6 +592,7 @@ const App = () => {
         </div>
       </header>
 
+
       {/* Main Content */}
       <main className="p-4">
         {activeTab === 'inventory' && renderInventoryList()}
@@ -530,8 +602,9 @@ const App = () => {
         {activeTab === 'activity' && <ActivityFeed logs={logs} onClear={handleClearLogs} />}
       </main>
 
+
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-3 max-w-xl mx-auto z-20 transition-colors">
+      <nav className={isDark ? "fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-700 px-6 py-3 max-w-xl mx-auto z-20 transition-colors" : "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-3 max-w-xl mx-auto z-20 transition-colors"}>
         <ul className="flex justify-between items-center">
           <li>
             <button 
@@ -595,6 +668,7 @@ const App = () => {
         </ul>
       </nav>
 
+
       {/* Modals */}
       <AddItemModal 
         isOpen={isModalOpen} 
@@ -606,6 +680,7 @@ const App = () => {
         initialData={editingItem}
         savedStores={savedStores}
       />
+
 
       {/* Delete Confirmation Modal */}
       {itemToDelete && (
@@ -635,5 +710,6 @@ const App = () => {
     </div>
   );
 };
+
 
 export default App;
